@@ -9,6 +9,8 @@ import requests
 import os
 from bs4 import BeautifulSoup
 from datetime import datetime
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ─────────────────────────────────────────────
 # CONFIGURACIÓN CHROMEDRIVER
@@ -25,7 +27,6 @@ ctk.set_default_color_theme("blue")
 # SCRAPERS
 # ─────────────────────────────────────────────
 
-
 def scrape_ahumada(codigos, log):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
@@ -38,7 +39,7 @@ def scrape_ahumada(codigos, log):
         log(f"  [Ahumada] Procesando: {codigo}")
         url = f"https://www.farmaciasahumada.cl/{codigo}.html"
         try:
-            r = requests.get(url, headers=headers, timeout=10)
+            r = requests.get(url, headers=headers, timeout=10, verify=False)
             if r.status_code == 200:
                 soup = BeautifulSoup(r.text, "html.parser")
                 scripts = soup.find_all("script", type="application/ld+json")
@@ -95,7 +96,7 @@ def scrape_cruzverde(codigos, connect_sid, log):
         params = {"inventoryId": "Zonapañales1119"}
         try:
             r = requests.get(url, headers=headers, params=params,
-                             cookies=cookies, timeout=10)
+                             cookies=cookies, timeout=10, verify=False)
             if r.status_code == 200:
                 datos = r.json()
                 producto = datos.get("productData", {})
@@ -121,15 +122,14 @@ def scrape_cruzverde(codigos, connect_sid, log):
 
 def scrape_jumbo(skus, log):
     api_key = "key_JopvNXKS61kwGkBe"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Accept": "application/json"}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Accept": "application/json"}
     resultados = []
     for sku in skus:
         log(f"  [Jumbo] Procesando: {sku}")
         url = f"https://pwcdauseo-zone.cnstrc.com/search/{sku}"
         params = {"key": api_key, "c": "ciojs-2.1368.5"}
         try:
-            r = requests.get(url, headers=headers, params=params, timeout=10)
+            r = requests.get(url, headers=headers, params=params, timeout=10, verify=False)
             if r.status_code == 200:
                 datos = r.json()
                 lista = datos.get('response', {}).get('results', [])
@@ -184,12 +184,10 @@ def scrape_preunic(skus, log):
         body = json.dumps({"requests": [{"indexName": "Ecommerce-Products_production",
                                          "params": f"clickAnalytics=true&facets=%5B%22brand%22%2C%22categories.lvl0%22%2C%22has_promotions%22%2C%22has_sb_promotions%22%5D&filters=(communes%3A%22340%22%20OR%20zones%3A%2239%22%20OR%20store_exclusive%3Afalse)%20AND%20state%3Aactive&hitsPerPage=24&page=0&query={sku}"}]})
         try:
-            r = requests.post(url, headers=headers,
-                              params=params, data=body, timeout=10)
+            r = requests.post(url, headers=headers, params=params, data=body, timeout=10, verify=False)
             if r.status_code == 200:
                 hits = r.json().get('results', [{}])[0].get('hits', [])
-                producto = next((h for h in hits if str(
-                    h.get('sku')) == str(sku)), hits[0] if hits else None)
+                producto = next((h for h in hits if str(h.get('sku')) == str(sku)), hits[0] if hits else None)
                 if producto:
                     precio_normal = producto.get('price', 0)
                     precio_oferta = producto.get('offer_price', 0)
@@ -222,7 +220,7 @@ def scrape_santaisabel(skus, log):
                    "hideUnavailableItems": False, "brands": [], "from": 0, "to": 40,
                    "orderBy": "", "promotionalCards": False, "selectedFacets": [], "sponsoredProducts": True}
         try:
-            r = requests.post(url, headers=headers, json=payload, timeout=10)
+            r = requests.post(url, headers=headers, json=payload, timeout=10, verify=False)
             if r.status_code == 200:
                 productos = r.json().get('products', [])
                 if productos:
@@ -260,12 +258,10 @@ def scrape_unimarc(ref_ids, log):
         chrome_options.add_argument("--disable-dev-shm-usage")
 
         if CHROMEDRIVER_PATH and os.path.exists(CHROMEDRIVER_PATH):
-            driver = webdriver.Chrome(service=Service(
-                CHROMEDRIVER_PATH), options=chrome_options)
+            driver = webdriver.Chrome(service=Service(CHROMEDRIVER_PATH), options=chrome_options)
         else:
             from webdriver_manager.chrome import ChromeDriverManager
-            driver = webdriver.Chrome(service=Service(
-                ChromeDriverManager().install()), options=chrome_options)
+            driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
         driver.get("https://www.unimarc.cl")
         time.sleep(4)
@@ -292,7 +288,7 @@ def scrape_unimarc(ref_ids, log):
                 "promotionsOnly": False, "to": "49", "userTriggered": True}
         try:
             r = requests.post("https://bff-unimarc-ecommerce.unimarc.cl/catalog/product/search",
-                              headers=headers, json=body, timeout=10)
+                              headers=headers, json=body, timeout=10, verify=False)
             if r.status_code == 200:
                 productos = r.json().get('availableProducts', [])
                 if productos:
@@ -300,10 +296,8 @@ def scrape_unimarc(ref_ids, log):
                         'refId', '').upper() == ref_id.upper()), productos[0])
                     item = producto.get('item', {})
                     price = producto.get('price', {})
-                    precio_normal = int(
-                        re.sub(r'[^\d]', '', price.get('listPrice', '0') or '0'))
-                    precio_oferta = int(
-                        re.sub(r'[^\d]', '', price.get('price', '0') or '0'))
+                    precio_normal = int(re.sub(r'[^\d]', '', price.get('listPrice', '0') or '0'))
+                    precio_oferta = int(re.sub(r'[^\d]', '', price.get('price', '0') or '0'))
                     en_oferta = price.get('inOffer', False)
                     resultados.append({"Cadena": "Unimarc", "SKU": ref_id,
                                        "Producto": item.get('nameComplete', 'Sin nombre'),
@@ -331,11 +325,9 @@ def scrape_tottus(codigos, log):
         options.add_argument("--disable-dev-shm-usage")
 
         if CHROMEDRIVER_PATH and os.path.exists(CHROMEDRIVER_PATH):
-            driver = uc.Chrome(
-                driver_executable_path=CHROMEDRIVER_PATH, options=options, headless=False)
+            driver = uc.Chrome(driver_executable_path=CHROMEDRIVER_PATH, options=options, headless=False)
         else:
-            driver = uc.Chrome(
-                options=options, headless=False, version_main=145)
+            driver = uc.Chrome(options=options, headless=False, version_main=145)
 
         driver.set_page_load_timeout(30)
     except Exception as e:
@@ -349,8 +341,7 @@ def scrape_tottus(codigos, log):
         try:
             driver.get(url)
             try:
-                WebDriverWait(driver, 8).until(
-                    lambda d: "articulo" in d.current_url)
+                WebDriverWait(driver, 8).until(lambda d: "articulo" in d.current_url)
             except:
                 log(f"  ⚠️ {codigo} — Producto no existe en Tottus")
                 continue
@@ -369,12 +360,10 @@ def scrape_tottus(codigos, log):
             if producto_data:
                 nombre = producto_data.get("name", "Sin nombre")
                 offers = producto_data.get("offers", [])
-                precios = sorted([int(o.get("price", 0))
-                                 for o in offers if o.get("price")])
+                precios = sorted([int(o.get("price", 0)) for o in offers if o.get("price")])
                 precio_normal = max(precios) if precios else 0
                 precio_promo = min(precios) if len(precios) > 1 else None
-                en_stock = any("InStock" in o.get("availability", "")
-                               for o in offers)
+                en_stock = any("InStock" in o.get("availability", "") for o in offers)
                 resultados.append({"Cadena": "Tottus", "SKU": codigo, "Producto": nombre,
                                    "Precio_Normal": precio_normal, "Precio_Promo": precio_promo, "En_Stock": en_stock})
                 log(f"  ✅ {nombre} | ${precio_normal}")
@@ -407,8 +396,7 @@ def scrape_salcobrand(skus, log):
                 log(f"  [Salcobrand] Procesando: {sku}")
                 api_url = f"https://api.retailrocket.net/api/1.0/partner/602bba6097a5281b4cc438c9/items/?itemsIds={sku}&format=json"
                 try:
-                    respuesta = page.evaluate(
-                        f"fetch('{api_url}').then(res => res.json())")
+                    respuesta = page.evaluate(f"fetch('{api_url}').then(res => res.json())")
                     if respuesta and len(respuesta) > 0:
                         item = respuesta[0]
                         precio_actual = item.get('Price', 0)
@@ -433,16 +421,14 @@ def scrape_salcobrand(skus, log):
 
 
 def scrape_walmart(skus, log):
-    cookies_path = os.path.join(os.path.dirname(
-        os.path.abspath(__file__)), "cookies.json")
+    cookies_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.json")
     if not os.path.exists(cookies_path):
         log("  ❌ No se encontró cookies.json. Exporta las cookies de super.lider.cl con Cookie-Editor.")
         return pd.DataFrame()
     try:
         with open(cookies_path, "r") as f:
             raw = json.load(f)
-        cookies = {c['name']: c['value']
-                   for c in raw} if isinstance(raw, list) else raw
+        cookies = {c['name']: c['value'] for c in raw} if isinstance(raw, list) else raw
         log(f"  [Walmart] ✅ Cookies cargadas ({len(cookies)} cookies)")
     except Exception as e:
         log(f"  ❌ Error leyendo cookies.json: {e}")
@@ -460,7 +446,7 @@ def scrape_walmart(skus, log):
         log(f"  [Walmart] Procesando: {sku}")
         url = f"https://super.lider.cl/ip/{sku}"
         try:
-            r = requests.get(url, headers=headers, cookies=cookies, timeout=15)
+            r = requests.get(url, headers=headers, cookies=cookies, timeout=15, verify=False)
             if "Robot o humano" in r.text or "Robot or human" in r.text or "__NEXT_DATA__" not in r.text:
                 if not cookies_vencidas:
                     log("  ⚠️ Cookies vencidas. Vuelve a exportar con Cookie-Editor.")
@@ -530,13 +516,11 @@ class App(ctk.CTk):
         self._build_ui()
 
     def _build_ui(self):
-        header = ctk.CTkFrame(
-            self, fg_color=COLORES["panel"], corner_radius=0, height=58)
+        header = ctk.CTkFrame(self, fg_color=COLORES["panel"], corner_radius=0, height=58)
         header.pack(fill="x", side="top")
         header.pack_propagate(False)
 
-        ctk.CTkLabel(header, text="🛒", font=("Segoe UI Emoji", 22)
-                     ).pack(side="left", padx=(20, 6), pady=14)
+        ctk.CTkLabel(header, text="🛒", font=("Segoe UI Emoji", 22)).pack(side="left", padx=(20, 6), pady=14)
         ctk.CTkLabel(header, text="Price Scraper",
                      font=ctk.CTkFont("Segoe UI", 17, "bold"),
                      text_color=COLORES["text"]).pack(side="left", pady=14)
@@ -545,8 +529,7 @@ class App(ctk.CTk):
                      text_color=COLORES["muted"]).pack(side="left", padx=14, pady=14)
 
         self.status_var = ctk.StringVar(value="Listo")
-        status_bar = ctk.CTkFrame(
-            self, fg_color=COLORES["panel"], corner_radius=0, height=28)
+        status_bar = ctk.CTkFrame(self, fg_color=COLORES["panel"], corner_radius=0, height=28)
         status_bar.pack(fill="x", side="bottom")
         status_bar.pack_propagate(False)
         self.status_lbl = ctk.CTkLabel(status_bar, textvariable=self.status_var,
@@ -564,8 +547,7 @@ class App(ctk.CTk):
         self._build_right(body)
 
     def _build_left(self, parent):
-        left = ctk.CTkFrame(
-            parent, fg_color=COLORES["panel"], corner_radius=12, width=270)
+        left = ctk.CTkFrame(parent, fg_color=COLORES["panel"], corner_radius=12, width=270)
         left.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
         left.pack_propagate(False)
 
@@ -581,8 +563,7 @@ class App(ctk.CTk):
         self.cadena_menu.pack(**pad)
 
         # Cookie Cruz Verde
-        self.cookie_frame = ctk.CTkFrame(
-            left, fg_color=COLORES["card"], corner_radius=8)
+        self.cookie_frame = ctk.CTkFrame(left, fg_color=COLORES["card"], corner_radius=8)
         ctk.CTkLabel(self.cookie_frame, text="🔑  Cookie Cruz Verde (connect.sid)",
                      font=ctk.CTkFont("Segoe UI", 10, "bold"),
                      text_color=COLORES["warning"]).pack(anchor="w", padx=10, pady=(8, 2))
@@ -611,14 +592,12 @@ class App(ctk.CTk):
                                           text_color=COLORES["success"], wraplength=240)
         self.archivo_label.pack(anchor="w", padx=16)
 
-        ctk.CTkFrame(left, fg_color=COLORES["border"], height=1).pack(
-            fill="x", padx=16, pady=10)
+        ctk.CTkFrame(left, fg_color=COLORES["border"], height=1).pack(fill="x", padx=16, pady=10)
 
         self.btn_iniciar = ctk.CTkButton(left, text="🚀  Iniciar extracción",
                                          command=self._iniciar,
                                          fg_color=COLORES["accent"], hover_color="#3a70d4",
-                                         font=ctk.CTkFont(
-                                             "Segoe UI", 13, "bold"),
+                                         font=ctk.CTkFont("Segoe UI", 13, "bold"),
                                          width=238, height=42, corner_radius=8)
         self.btn_iniciar.pack(padx=16, pady=(0, 8))
 
@@ -629,8 +608,7 @@ class App(ctk.CTk):
                                       width=238, height=38, corner_radius=8)
         self.btn_base.pack(padx=16, pady=(0, 12))
 
-        ctk.CTkFrame(left, fg_color=COLORES["border"], height=1).pack(
-            fill="x", padx=16, pady=(0, 10))
+        ctk.CTkFrame(left, fg_color=COLORES["border"], height=1).pack(fill="x", padx=16, pady=(0, 10))
 
         self.btn_csv = ctk.CTkButton(left, text="💾  Exportar CSV",
                                      command=self._exportar,
@@ -657,8 +635,7 @@ class App(ctk.CTk):
         right.rowconfigure(1, weight=1)
         right.columnconfigure(0, weight=1)
 
-        log_frame = ctk.CTkFrame(
-            right, fg_color=COLORES["panel"], corner_radius=12)
+        log_frame = ctk.CTkFrame(right, fg_color=COLORES["panel"], corner_radius=12)
         log_frame.grid(row=0, column=0, sticky="ew", pady=(0, 12))
 
         ctk.CTkLabel(log_frame, text="Log de extracción",
@@ -672,8 +649,7 @@ class App(ctk.CTk):
         self.log_text.pack(fill="x", padx=12, pady=(0, 12))
         self.log_text.configure(state="disabled")
 
-        tabla_frame = ctk.CTkFrame(
-            right, fg_color=COLORES["panel"], corner_radius=12)
+        tabla_frame = ctk.CTkFrame(right, fg_color=COLORES["panel"], corner_radius=12)
         tabla_frame.grid(row=1, column=0, sticky="nsew")
         tabla_frame.rowconfigure(1, weight=1)
         tabla_frame.columnconfigure(0, weight=1)
@@ -696,31 +672,25 @@ class App(ctk.CTk):
                         relief="flat", font=("Segoe UI", 10, "bold"))
         style.map("Dark.Treeview", background=[("selected", COLORES["accent"])],
                   foreground=[("selected", "white")])
-        style.map("Dark.Treeview.Heading", background=[
-                  ("active", COLORES["border"])])
+        style.map("Dark.Treeview.Heading", background=[("active", COLORES["border"])])
 
-        cols = ("Cadena", "SKU", "Producto",
-                "Precio_Normal", "Precio_Promo", "En_Stock")
+        cols = ("Cadena", "SKU", "Producto", "Precio_Normal", "Precio_Promo", "En_Stock")
         tree_container = tk.Frame(tabla_frame, bg=COLORES["card"])
-        tree_container.grid(row=1, column=0, sticky="nsew",
-                            padx=12, pady=(0, 12))
+        tree_container.grid(row=1, column=0, sticky="nsew", padx=12, pady=(0, 12))
         tabla_frame.rowconfigure(1, weight=1)
         tabla_frame.columnconfigure(0, weight=1)
         tree_container.rowconfigure(0, weight=1)
         tree_container.columnconfigure(0, weight=1)
 
-        self.tabla = ttk.Treeview(
-            tree_container, columns=cols, show="headings", style="Dark.Treeview")
+        self.tabla = ttk.Treeview(tree_container, columns=cols, show="headings", style="Dark.Treeview")
         widths = {"Cadena": 110, "SKU": 130, "Producto": 240,
                   "Precio_Normal": 110, "Precio_Promo": 110, "En_Stock": 70}
         for col in cols:
             self.tabla.heading(col, text=col)
             self.tabla.column(col, width=widths[col], anchor="center")
 
-        vsb = ttk.Scrollbar(tree_container, orient="vertical",
-                            command=self.tabla.yview)
-        hsb = ttk.Scrollbar(
-            tree_container, orient="horizontal", command=self.tabla.xview)
+        vsb = ttk.Scrollbar(tree_container, orient="vertical", command=self.tabla.yview)
+        hsb = ttk.Scrollbar(tree_container, orient="horizontal", command=self.tabla.xview)
         self.tabla.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
         self.tabla.grid(row=0, column=0, sticky="nsew")
         vsb.grid(row=0, column=1, sticky="ns")
@@ -730,8 +700,7 @@ class App(ctk.CTk):
 
     def _on_cadena_change(self, value=None):
         if self.cadena_var.get() == "Cruz Verde":
-            self.cookie_frame.pack(padx=16, pady=(
-                0, 10), after=self.cadena_menu)
+            self.cookie_frame.pack(padx=16, pady=(0, 10), after=self.cadena_menu)
         else:
             self.cookie_frame.pack_forget()
 
@@ -748,22 +717,18 @@ class App(ctk.CTk):
             self.status_lbl.configure(text_color=color)
 
     def _cargar_archivo(self):
-        path = filedialog.askopenfilename(
-            filetypes=[("Excel/CSV", "*.xlsx *.csv")])
+        path = filedialog.askopenfilename(filetypes=[("Excel/CSV", "*.xlsx *.csv")])
         if not path:
             return
         try:
-            df = pd.read_csv(path) if path.endswith(
-                ".csv") else pd.read_excel(path)
+            df = pd.read_csv(path) if path.endswith(".csv") else pd.read_excel(path)
             cadena_actual = self.cadena_var.get()
             if "SKU" in df.columns and "Cadena" in df.columns:
-                skus = df[df["Cadena"].str.lower() == cadena_actual.lower()
-                          ]["SKU"].astype(str).tolist()
+                skus = df[df["Cadena"].str.lower() == cadena_actual.lower()]["SKU"].astype(str).tolist()
             elif "SKU" in df.columns:
                 skus = df["SKU"].astype(str).tolist()
             else:
-                messagebox.showerror(
-                    "Error", "El archivo debe tener una columna 'SKU'")
+                messagebox.showerror("Error", "El archivo debe tener una columna 'SKU'")
                 return
             self.sku_text.delete("1.0", "end")
             self.sku_text.insert("1.0", "\n".join(skus))
@@ -779,8 +744,7 @@ class App(ctk.CTk):
         skus = [s.strip() for s in skus_raw.splitlines() if s.strip()]
         cadena = self.cadena_var.get()
         if cadena == "Cruz Verde" and not self.connect_sid_var.get().strip():
-            messagebox.showerror(
-                "Error", "Cruz Verde requiere la cookie connect.sid")
+            messagebox.showerror("Error", "Cruz Verde requiere la cookie connect.sid")
             return
 
         self.btn_iniciar.configure(state="disabled", text="⏳  Extrayendo...")
@@ -791,8 +755,7 @@ class App(ctk.CTk):
         self.log_text.configure(state="disabled")
         for row in self.tabla.get_children():
             self.tabla.delete(row)
-        self._set_status(
-            f"Extrayendo {len(skus)} SKUs de {cadena}…", COLORES["warning"])
+        self._set_status(f"Extrayendo {len(skus)} SKUs de {cadena}…", COLORES["warning"])
 
         def run():
             self._log(f"🚀 Iniciando — {cadena} — {len(skus)} SKUs")
@@ -806,30 +769,26 @@ class App(ctk.CTk):
                     self._log(f"✅ Completado — {len(df)} productos")
                     self.btn_csv.configure(state="normal")
                     self.btn_xlsx.configure(state="normal")
-                    self._set_status(
-                        f"✅ {len(df)} productos extraídos de {cadena}", COLORES["success"])
+                    self._set_status(f"✅ {len(df)} productos extraídos de {cadena}", COLORES["success"])
                 else:
                     self._log("⚠️ Sin resultados")
                     self._set_status("⚠️ Sin resultados", COLORES["warning"])
             except Exception as e:
                 self._log(f"❌ Error general: {e}")
                 self._set_status(f"❌ Error: {e}", COLORES["danger"])
-            self.btn_iniciar.configure(
-                state="normal", text="🚀  Iniciar extracción")
+            self.btn_iniciar.configure(state="normal", text="🚀  Iniciar extracción")
 
         threading.Thread(target=run, daemon=True).start()
 
     def _iniciar_base(self):
         file_path = "skus_base.xlsx"
         if not os.path.exists(file_path):
-            messagebox.showerror(
-                "Error", f"No se encontró '{file_path}' en la carpeta del programa.")
+            messagebox.showerror("Error", f"No se encontró '{file_path}' en la carpeta del programa.")
             return
         try:
             df_base = pd.read_excel(file_path)
             if "SKU" not in df_base.columns or "Cadena" not in df_base.columns:
-                messagebox.showerror(
-                    "Error", "El Excel debe tener columnas 'SKU' y 'Cadena'.")
+                messagebox.showerror("Error", "El Excel debe tener columnas 'SKU' y 'Cadena'.")
                 return
         except Exception as e:
             messagebox.showerror("Error", f"Error al leer el archivo:\n{e}")
@@ -850,8 +809,7 @@ class App(ctk.CTk):
         self.log_text.configure(state="disabled")
         for row in self.tabla.get_children():
             self.tabla.delete(row)
-        self._set_status(
-            f"Procesando base con {len(df_base)} registros…", COLORES["warning"])
+        self._set_status(f"Procesando base con {len(df_base)} registros…", COLORES["warning"])
 
         def run_base():
             self._log(f"⚡ Extracción MASIVA desde {file_path}")
@@ -875,10 +833,8 @@ class App(ctk.CTk):
                 self.df_resultado = pd.concat(all_dfs, ignore_index=True)
                 self._poblar_tabla(self.df_resultado)
                 self._log(f"\n{'─'*55}")
-                self._log(
-                    f"✅ BASE COMPLETADA — {len(self.df_resultado)} productos")
-                self._set_status(
-                    f"✅ Base procesada: {len(self.df_resultado)} productos", COLORES["success"])
+                self._log(f"✅ BASE COMPLETADA — {len(self.df_resultado)} productos")
+                self._set_status(f"✅ Base procesada: {len(self.df_resultado)} productos", COLORES["success"])
                 self.btn_csv.configure(state="normal")
                 self.btn_xlsx.configure(state="normal")
             else:
@@ -886,8 +842,7 @@ class App(ctk.CTk):
                 self._set_status("⚠️ Sin resultados", COLORES["warning"])
 
             self.btn_iniciar.configure(state="normal")
-            self.btn_base.configure(
-                state="normal", text="⚡  Ejecutar skus_base.xlsx")
+            self.btn_base.configure(state="normal", text="⚡  Ejecutar skus_base.xlsx")
 
         threading.Thread(target=run_base, daemon=True).start()
 
