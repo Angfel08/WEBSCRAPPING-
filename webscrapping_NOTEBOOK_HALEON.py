@@ -13,9 +13,13 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ─────────────────────────────────────────────
-# CONFIGURACIÓN CHROMEDRIVER
+# CONFIGURACIÓN DRIVERS
 # ─────────────────────────────────────────────
-CHROMEDRIVER_PATH = r"C:\Users\afr4d3844\OneDrive - Haleon\DEMANDA CHILE - TOOLS DIEGO\Category Management\Scrapers\NO BORRAR\chromedriver-win64\chromedriver.exe"
+EDGEDRIVER_PATH = r"C:\Users\afr4d3844\OneDrive - Haleon\DEMANDA CHILE - TOOLS DIEGO\Category Management\Scrapers\NO BORRAR\chromedriver-win64\msedgedriver.exe"
+
+EDGE_BINARY = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+if not os.path.exists(EDGE_BINARY):
+    EDGE_BINARY = r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
 
 # ─────────────────────────────────────────────
 # TEMA
@@ -249,20 +253,18 @@ def scrape_santaisabel(skus, log):
 def scrape_unimarc(ref_ids, log):
     try:
         from selenium import webdriver
-        from selenium.webdriver.chrome.options import Options
-        from selenium.webdriver.chrome.service import Service
-        log("  [Unimarc] Obteniendo tokens de sesión...")
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
+        from selenium.webdriver.edge.service import Service as EdgeService
+        from selenium.webdriver.edge.options import Options as EdgeOptions
 
-        if CHROMEDRIVER_PATH and os.path.exists(CHROMEDRIVER_PATH):
-            driver = webdriver.Chrome(service=Service(CHROMEDRIVER_PATH), options=chrome_options)
-        else:
-            from webdriver_manager.chrome import ChromeDriverManager
-            driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        log("  [Unimarc] Obteniendo tokens de sesión con Edge...")
+        edge_options = EdgeOptions()
+        edge_options.add_argument("--headless")
+        edge_options.add_argument("--no-sandbox")
+        edge_options.add_argument("--disable-dev-shm-usage")
+        edge_options.add_argument("--disable-gpu")
+        edge_options.binary_location = EDGE_BINARY
 
+        driver = webdriver.Edge(service=EdgeService(EDGEDRIVER_PATH), options=edge_options)
         driver.get("https://www.unimarc.cl")
         time.sleep(4)
         cookies = {c['name']: c['value'] for c in driver.get_cookies()}
@@ -271,7 +273,7 @@ def scrape_unimarc(ref_ids, log):
         driver.quit()
         log("  ✅ Tokens obtenidos")
     except Exception as e:
-        log(f"  ❌ Error Selenium: {e}")
+        log(f"  ❌ Error Edge: {e}")
         return pd.DataFrame()
 
     headers = {
@@ -317,21 +319,25 @@ def scrape_unimarc(ref_ids, log):
 
 def scrape_tottus(codigos, log):
     try:
-        import undetected_chromedriver as uc
+        from selenium import webdriver
+        from selenium.webdriver.edge.service import Service as EdgeService
+        from selenium.webdriver.edge.options import Options as EdgeOptions
         from selenium.webdriver.support.ui import WebDriverWait
 
-        options = uc.ChromeOptions()
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
+        log("  [Tottus] Iniciando con Microsoft Edge...")
+        edge_options = EdgeOptions()
+        edge_options.add_argument("--no-sandbox")
+        edge_options.add_argument("--disable-dev-shm-usage")
+        edge_options.add_argument("--disable-gpu")
+        edge_options.add_argument(
+            "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 Edg/145.0.0.0"
+        )
+        edge_options.binary_location = EDGE_BINARY
 
-        if CHROMEDRIVER_PATH and os.path.exists(CHROMEDRIVER_PATH):
-            driver = uc.Chrome(driver_executable_path=CHROMEDRIVER_PATH, options=options, headless=False)
-        else:
-            driver = uc.Chrome(options=options, headless=False, version_main=145)
-
+        driver = webdriver.Edge(service=EdgeService(EDGEDRIVER_PATH), options=edge_options)
         driver.set_page_load_timeout(30)
     except Exception as e:
-        log(f"  ❌ Error iniciando Chrome: {e}")
+        log(f"  ❌ Error iniciando Edge: {e}")
         return pd.DataFrame()
 
     resultados = []
@@ -389,7 +395,7 @@ def scrape_salcobrand(skus, log):
             context = browser.new_context(
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
             page = context.new_page()
-            log("  [Salcobrand] Sincronizando sesión...")
+            log("  [Salcobrand] Sincronizando sesion...")
             page.goto("https://salcobrand.cl/", wait_until="networkidle")
             time.sleep(2)
             for sku in skus:
@@ -423,7 +429,7 @@ def scrape_salcobrand(skus, log):
 def scrape_walmart(skus, log):
     cookies_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.json")
     if not os.path.exists(cookies_path):
-        log("  ❌ No se encontró cookies.json. Exporta las cookies de super.lider.cl con Cookie-Editor.")
+        log("  ❌ No se encontro cookies.json. Exporta las cookies de super.lider.cl con Cookie-Editor.")
         return pd.DataFrame()
     try:
         with open(cookies_path, "r") as f:
@@ -481,23 +487,16 @@ def scrape_walmart(skus, log):
 
 
 # ─────────────────────────────────────────────
-# GUI — CustomTkinter
+# GUI
 # ─────────────────────────────────────────────
 
 CADENAS = ["Ahumada", "Cruz Verde", "Jumbo", "Preunic",
            "Salcobrand", "Santa Isabel", "Tottus", "Unimarc", "Walmart/Lider"]
 
 COLORES = {
-    "bg":        "#0f1117",
-    "panel":     "#1a1d27",
-    "card":      "#22263a",
-    "accent":    "#4f8ef7",
-    "success":   "#22c55e",
-    "warning":   "#f59e0b",
-    "danger":    "#ef4444",
-    "text":      "#e2e8f0",
-    "muted":     "#64748b",
-    "border":    "#2d3150",
+    "bg": "#0f1117", "panel": "#1a1d27", "card": "#22263a",
+    "accent": "#4f8ef7", "success": "#22c55e", "warning": "#f59e0b",
+    "danger": "#ef4444", "text": "#e2e8f0", "muted": "#64748b", "border": "#2d3150",
 }
 
 
@@ -508,33 +507,27 @@ class App(ctk.CTk):
         self.geometry("1100x750")
         self.minsize(900, 650)
         self.configure(fg_color=COLORES["bg"])
-
         self.df_resultado = None
         self.cadena_var = ctk.StringVar(value=CADENAS[0])
         self.connect_sid_var = ctk.StringVar()
-
         self._build_ui()
 
     def _build_ui(self):
         header = ctk.CTkFrame(self, fg_color=COLORES["panel"], corner_radius=0, height=58)
         header.pack(fill="x", side="top")
         header.pack_propagate(False)
-
         ctk.CTkLabel(header, text="🛒", font=("Segoe UI Emoji", 22)).pack(side="left", padx=(20, 6), pady=14)
-        ctk.CTkLabel(header, text="Price Scraper",
-                     font=ctk.CTkFont("Segoe UI", 17, "bold"),
+        ctk.CTkLabel(header, text="Price Scraper", font=ctk.CTkFont("Segoe UI", 17, "bold"),
                      text_color=COLORES["text"]).pack(side="left", pady=14)
-        ctk.CTkLabel(header, text="9 cadenas  •  extracción automática de precios",
-                     font=ctk.CTkFont("Segoe UI", 11),
-                     text_color=COLORES["muted"]).pack(side="left", padx=14, pady=14)
+        ctk.CTkLabel(header, text="9 cadenas  •  extraccion automatica de precios",
+                     font=ctk.CTkFont("Segoe UI", 11), text_color=COLORES["muted"]).pack(side="left", padx=14, pady=14)
 
         self.status_var = ctk.StringVar(value="Listo")
         status_bar = ctk.CTkFrame(self, fg_color=COLORES["panel"], corner_radius=0, height=28)
         status_bar.pack(fill="x", side="bottom")
         status_bar.pack_propagate(False)
         self.status_lbl = ctk.CTkLabel(status_bar, textvariable=self.status_var,
-                                       font=ctk.CTkFont("Segoe UI", 10),
-                                       text_color=COLORES["muted"], anchor="w")
+                                       font=ctk.CTkFont("Segoe UI", 10), text_color=COLORES["muted"], anchor="w")
         self.status_lbl.pack(side="left", padx=14)
 
         body = ctk.CTkFrame(self, fg_color="transparent")
@@ -542,7 +535,6 @@ class App(ctk.CTk):
         body.columnconfigure(0, weight=0, minsize=270)
         body.columnconfigure(1, weight=1)
         body.rowconfigure(0, weight=1)
-
         self._build_left(body)
         self._build_right(body)
 
@@ -550,42 +542,34 @@ class App(ctk.CTk):
         left = ctk.CTkFrame(parent, fg_color=COLORES["panel"], corner_radius=12, width=270)
         left.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
         left.pack_propagate(False)
-
         pad = {"padx": 16, "pady": (0, 10)}
 
         ctk.CTkLabel(left, text="Cadena", font=ctk.CTkFont("Segoe UI", 12, "bold"),
                      text_color=COLORES["muted"]).pack(anchor="w", padx=16, pady=(16, 4))
         self.cadena_menu = ctk.CTkComboBox(left, variable=self.cadena_var, values=CADENAS,
-                                           command=self._on_cadena_change,
-                                           fg_color=COLORES["card"], border_color=COLORES["border"],
-                                           button_color=COLORES["accent"], dropdown_fg_color=COLORES["card"],
+                                           command=self._on_cadena_change, fg_color=COLORES["card"],
+                                           border_color=COLORES["border"], button_color=COLORES["accent"],
+                                           dropdown_fg_color=COLORES["card"],
                                            font=ctk.CTkFont("Segoe UI", 12), width=238)
         self.cadena_menu.pack(**pad)
 
-        # Cookie Cruz Verde
         self.cookie_frame = ctk.CTkFrame(left, fg_color=COLORES["card"], corner_radius=8)
         ctk.CTkLabel(self.cookie_frame, text="🔑  Cookie Cruz Verde (connect.sid)",
-                     font=ctk.CTkFont("Segoe UI", 10, "bold"),
-                     text_color=COLORES["warning"]).pack(anchor="w", padx=10, pady=(8, 2))
-        self.cookie_entry = ctk.CTkEntry(self.cookie_frame, textvariable=self.connect_sid_var,
-                                         show="*", fg_color=COLORES["panel"],
-                                         border_color=COLORES["border"],
+                     font=ctk.CTkFont("Segoe UI", 10, "bold"), text_color=COLORES["warning"]).pack(anchor="w", padx=10, pady=(8, 2))
+        self.cookie_entry = ctk.CTkEntry(self.cookie_frame, textvariable=self.connect_sid_var, show="*",
+                                         fg_color=COLORES["panel"], border_color=COLORES["border"],
                                          font=ctk.CTkFont("Consolas", 10), width=218)
         self.cookie_entry.pack(padx=10, pady=(0, 8))
 
-        ctk.CTkLabel(left, text="SKUs  (uno por línea)",
-                     font=ctk.CTkFont("Segoe UI", 12, "bold"),
+        ctk.CTkLabel(left, text="SKUs  (uno por linea)", font=ctk.CTkFont("Segoe UI", 12, "bold"),
                      text_color=COLORES["muted"]).pack(anchor="w", padx=16, pady=(4, 4))
         self.sku_text = ctk.CTkTextbox(left, height=140, fg_color=COLORES["card"],
-                                       border_color=COLORES["border"],
-                                       font=ctk.CTkFont("Consolas", 11), width=238)
+                                       border_color=COLORES["border"], font=ctk.CTkFont("Consolas", 11), width=238)
         self.sku_text.pack(**pad)
 
-        ctk.CTkButton(left, text="📁  Cargar Excel / CSV",
-                      command=self._cargar_archivo,
+        ctk.CTkButton(left, text="📁  Cargar Excel / CSV", command=self._cargar_archivo,
                       fg_color=COLORES["card"], hover_color=COLORES["border"],
-                      border_color=COLORES["accent"], border_width=1,
-                      text_color=COLORES["accent"],
+                      border_color=COLORES["accent"], border_width=1, text_color=COLORES["accent"],
                       font=ctk.CTkFont("Segoe UI", 11), width=238, height=34).pack(**pad)
 
         self.archivo_label = ctk.CTkLabel(left, text="", font=ctk.CTkFont("Segoe UI", 9),
@@ -594,41 +578,34 @@ class App(ctk.CTk):
 
         ctk.CTkFrame(left, fg_color=COLORES["border"], height=1).pack(fill="x", padx=16, pady=10)
 
-        self.btn_iniciar = ctk.CTkButton(left, text="🚀  Iniciar extracción",
-                                         command=self._iniciar,
+        self.btn_iniciar = ctk.CTkButton(left, text="🚀  Iniciar extraccion", command=self._iniciar,
                                          fg_color=COLORES["accent"], hover_color="#3a70d4",
-                                         font=ctk.CTkFont("Segoe UI", 13, "bold"),
-                                         width=238, height=42, corner_radius=8)
+                                         font=ctk.CTkFont("Segoe UI", 13, "bold"), width=238, height=42, corner_radius=8)
         self.btn_iniciar.pack(padx=16, pady=(0, 8))
 
-        self.btn_base = ctk.CTkButton(left, text="⚡  Ejecutar skus_base.xlsx",
-                                      command=self._iniciar_base,
+        self.btn_base = ctk.CTkButton(left, text="⚡  Ejecutar skus_base.xlsx", command=self._iniciar_base,
                                       fg_color="#166534", hover_color="#14532d",
-                                      font=ctk.CTkFont("Segoe UI", 12, "bold"),
-                                      width=238, height=38, corner_radius=8)
+                                      font=ctk.CTkFont("Segoe UI", 12, "bold"), width=238, height=38, corner_radius=8)
         self.btn_base.pack(padx=16, pady=(0, 12))
 
         ctk.CTkFrame(left, fg_color=COLORES["border"], height=1).pack(fill="x", padx=16, pady=(0, 10))
 
-        self.btn_csv = ctk.CTkButton(left, text="💾  Exportar CSV",
-                                     command=self._exportar,
+        self.btn_csv = ctk.CTkButton(left, text="💾  Exportar CSV", command=self._exportar,
                                      fg_color=COLORES["card"], hover_color=COLORES["border"],
-                                     border_color=COLORES["success"], border_width=1,
-                                     text_color=COLORES["success"],
-                                     font=ctk.CTkFont("Segoe UI", 11),
-                                     width=238, height=34, state="disabled")
+                                     border_color=COLORES["success"], border_width=1, text_color=COLORES["success"],
+                                     font=ctk.CTkFont("Segoe UI", 11), width=238, height=34, state="disabled")
         self.btn_csv.pack(padx=16, pady=(0, 6))
 
-        self.btn_xlsx = ctk.CTkButton(left, text="📊  Exportar Excel",
-                                      command=self._exportar_xlsx,
+        self.btn_xlsx = ctk.CTkButton(left, text="📊  Exportar Excel", command=self._exportar_xlsx,
                                       fg_color=COLORES["card"], hover_color=COLORES["border"],
-                                      border_color=COLORES["success"], border_width=1,
-                                      text_color=COLORES["success"],
-                                      font=ctk.CTkFont("Segoe UI", 11),
-                                      width=238, height=34, state="disabled")
+                                      border_color=COLORES["success"], border_width=1, text_color=COLORES["success"],
+                                      font=ctk.CTkFont("Segoe UI", 11), width=238, height=34, state="disabled")
         self.btn_xlsx.pack(padx=16, pady=(0, 16))
 
     def _build_right(self, parent):
+        import tkinter.ttk as ttv
+        import tkinter as tk
+
         right = ctk.CTkFrame(parent, fg_color="transparent")
         right.grid(row=0, column=1, sticky="nsew")
         right.rowconfigure(0, weight=0)
@@ -637,15 +614,10 @@ class App(ctk.CTk):
 
         log_frame = ctk.CTkFrame(right, fg_color=COLORES["panel"], corner_radius=12)
         log_frame.grid(row=0, column=0, sticky="ew", pady=(0, 12))
-
-        ctk.CTkLabel(log_frame, text="Log de extracción",
-                     font=ctk.CTkFont("Segoe UI", 12, "bold"),
+        ctk.CTkLabel(log_frame, text="Log de extraccion", font=ctk.CTkFont("Segoe UI", 12, "bold"),
                      text_color=COLORES["muted"]).pack(anchor="w", padx=14, pady=(10, 4))
-
-        self.log_text = ctk.CTkTextbox(log_frame, height=160, fg_color="#0d1117",
-                                       text_color="#4ade80",
-                                       font=ctk.CTkFont("Consolas", 10),
-                                       border_color=COLORES["border"])
+        self.log_text = ctk.CTkTextbox(log_frame, height=160, fg_color="#0d1117", text_color="#4ade80",
+                                       font=ctk.CTkFont("Consolas", 10), border_color=COLORES["border"])
         self.log_text.pack(fill="x", padx=12, pady=(0, 12))
         self.log_text.configure(state="disabled")
 
@@ -653,25 +625,16 @@ class App(ctk.CTk):
         tabla_frame.grid(row=1, column=0, sticky="nsew")
         tabla_frame.rowconfigure(1, weight=1)
         tabla_frame.columnconfigure(0, weight=1)
-
-        ctk.CTkLabel(tabla_frame, text="Resultados",
-                     font=ctk.CTkFont("Segoe UI", 12, "bold"),
+        ctk.CTkLabel(tabla_frame, text="Resultados", font=ctk.CTkFont("Segoe UI", 12, "bold"),
                      text_color=COLORES["muted"]).grid(row=0, column=0, sticky="w", padx=14, pady=(10, 6))
 
-        import tkinter.ttk as ttk
-        import tkinter as tk
-
-        style = ttk.Style()
+        style = ttv.Style()
         style.theme_use("clam")
-        style.configure("Dark.Treeview",
-                        background=COLORES["card"], foreground=COLORES["text"],
-                        fieldbackground=COLORES["card"], rowheight=28,
-                        borderwidth=0, font=("Segoe UI", 10))
-        style.configure("Dark.Treeview.Heading",
-                        background=COLORES["panel"], foreground=COLORES["muted"],
+        style.configure("Dark.Treeview", background=COLORES["card"], foreground=COLORES["text"],
+                        fieldbackground=COLORES["card"], rowheight=28, borderwidth=0, font=("Segoe UI", 10))
+        style.configure("Dark.Treeview.Heading", background=COLORES["panel"], foreground=COLORES["muted"],
                         relief="flat", font=("Segoe UI", 10, "bold"))
-        style.map("Dark.Treeview", background=[("selected", COLORES["accent"])],
-                  foreground=[("selected", "white")])
+        style.map("Dark.Treeview", background=[("selected", COLORES["accent"])], foreground=[("selected", "white")])
         style.map("Dark.Treeview.Heading", background=[("active", COLORES["border"])])
 
         cols = ("Cadena", "SKU", "Producto", "Precio_Normal", "Precio_Promo", "En_Stock")
@@ -682,15 +645,14 @@ class App(ctk.CTk):
         tree_container.rowconfigure(0, weight=1)
         tree_container.columnconfigure(0, weight=1)
 
-        self.tabla = ttk.Treeview(tree_container, columns=cols, show="headings", style="Dark.Treeview")
-        widths = {"Cadena": 110, "SKU": 130, "Producto": 240,
-                  "Precio_Normal": 110, "Precio_Promo": 110, "En_Stock": 70}
+        self.tabla = ttv.Treeview(tree_container, columns=cols, show="headings", style="Dark.Treeview")
+        widths = {"Cadena": 110, "SKU": 130, "Producto": 240, "Precio_Normal": 110, "Precio_Promo": 110, "En_Stock": 70}
         for col in cols:
             self.tabla.heading(col, text=col)
             self.tabla.column(col, width=widths[col], anchor="center")
 
-        vsb = ttk.Scrollbar(tree_container, orient="vertical", command=self.tabla.yview)
-        hsb = ttk.Scrollbar(tree_container, orient="horizontal", command=self.tabla.xview)
+        vsb = ttv.Scrollbar(tree_container, orient="vertical", command=self.tabla.yview)
+        hsb = ttv.Scrollbar(tree_container, orient="horizontal", command=self.tabla.xview)
         self.tabla.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
         self.tabla.grid(row=0, column=0, sticky="nsew")
         vsb.grid(row=0, column=1, sticky="ns")
@@ -746,7 +708,6 @@ class App(ctk.CTk):
         if cadena == "Cruz Verde" and not self.connect_sid_var.get().strip():
             messagebox.showerror("Error", "Cruz Verde requiere la cookie connect.sid")
             return
-
         self.btn_iniciar.configure(state="disabled", text="⏳  Extrayendo...")
         self.btn_csv.configure(state="disabled")
         self.btn_xlsx.configure(state="disabled")
@@ -776,14 +737,14 @@ class App(ctk.CTk):
             except Exception as e:
                 self._log(f"❌ Error general: {e}")
                 self._set_status(f"❌ Error: {e}", COLORES["danger"])
-            self.btn_iniciar.configure(state="normal", text="🚀  Iniciar extracción")
+            self.btn_iniciar.configure(state="normal", text="🚀  Iniciar extraccion")
 
         threading.Thread(target=run, daemon=True).start()
 
     def _iniciar_base(self):
         file_path = "skus_base.xlsx"
         if not os.path.exists(file_path):
-            messagebox.showerror("Error", f"No se encontró '{file_path}' en la carpeta del programa.")
+            messagebox.showerror("Error", f"No se encontro '{file_path}' en la carpeta del programa.")
             return
         try:
             df_base = pd.read_excel(file_path)
@@ -812,7 +773,7 @@ class App(ctk.CTk):
         self._set_status(f"Procesando base con {len(df_base)} registros…", COLORES["warning"])
 
         def run_base():
-            self._log(f"⚡ Extracción MASIVA desde {file_path}")
+            self._log(f"⚡ Extraccion MASIVA desde {file_path}")
             self._log("─" * 55)
             all_dfs = []
             for cadena, group in df_base.groupby("Cadena"):
@@ -827,7 +788,7 @@ class App(ctk.CTk):
                     if df_res is not None and not df_res.empty:
                         all_dfs.append(df_res)
                 except Exception as e:
-                    self._log(f"❌ Error crítico en {cadena}: {e}")
+                    self._log(f"❌ Error critico en {cadena}: {e}")
 
             if all_dfs:
                 self.df_resultado = pd.concat(all_dfs, ignore_index=True)
@@ -877,8 +838,7 @@ class App(ctk.CTk):
             tag = "odd" if i % 2 else "even"
             promo = row.get('Precio_Promo')
             self.tabla.insert("", "end", tags=(tag,), values=(
-                row.get("Cadena", ""),
-                row.get("SKU", ""),
+                row.get("Cadena", ""), row.get("SKU", ""),
                 str(row.get("Producto", ""))[:55],
                 f"${row.get('Precio_Normal', 0):,}",
                 f"${int(promo):,}" if pd.notna(promo) and promo else "—",
@@ -889,8 +849,7 @@ class App(ctk.CTk):
         if self.df_resultado is None or self.df_resultado.empty:
             return
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        path = filedialog.asksaveasfilename(defaultextension=".csv",
-                                            initialfile=f"precios_{ts}.csv",
+        path = filedialog.asksaveasfilename(defaultextension=".csv", initialfile=f"precios_{ts}.csv",
                                             filetypes=[("CSV", "*.csv")])
         if path:
             self.df_resultado.to_csv(path, index=False, encoding="utf-8-sig")
@@ -900,8 +859,7 @@ class App(ctk.CTk):
         if self.df_resultado is None or self.df_resultado.empty:
             return
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        path = filedialog.asksaveasfilename(defaultextension=".xlsx",
-                                            initialfile=f"precios_{ts}.xlsx",
+        path = filedialog.asksaveasfilename(defaultextension=".xlsx", initialfile=f"precios_{ts}.xlsx",
                                             filetypes=[("Excel", "*.xlsx")])
         if path:
             self.df_resultado.to_excel(path, index=False)
